@@ -1,0 +1,677 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Emmy Voice Studio</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a recording desk. A navy console strip with Emmy and a stacking level meter across the top, the script on the left, voice controls on the right, then the line library, pronunciation rules and exports below. */
+:root{
+  --font-display:"Bricolage Grotesque","Trebuchet MS",system-ui,sans-serif;
+  --font-body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --bg:#EDF2FF; --surface:#FFFFFF; --surface-2:#F3F6FF; --ink:#0B1740; --muted:#566190; --line:#D0DAF5;
+  --accent:#2158F5; --accent-ink:#FFFFFF; --accent-soft:#E1EAFF;
+  --console:#0A1642; --console-ink:#EAF0FF; --console-muted:#93A6DE;
+  --block:#2F6BFF; --block-hot:#8FB4FF; --block-off:#16255E;
+  --good:#0C8A57; --warn:#A85F00; --bad:#C0392B;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#060B22; --surface:#0E1636; --surface-2:#131D45; --ink:#E7EDFF; --muted:#93A2D6; --line:#222F62;
+  --accent:#5B8DFF; --accent-ink:#06113A; --accent-soft:#1A2A63; --console:#0B1440;
+  --good:#3DD598; --warn:#F2B04C; --bad:#FF7A6B; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#060B22; --surface:#0E1636; --surface-2:#131D45; --ink:#E7EDFF; --muted:#93A2D6; --line:#222F62;
+  --accent:#5B8DFF; --accent-ink:#06113A; --accent-soft:#1A2A63; --console:#0B1440;
+  --good:#3DD598; --warn:#F2B04C; --bad:#FF7A6B; color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--ink);font:400 15px/1.5 var(--font-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{font-family:var(--font-display);margin:0;text-wrap:balance}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--font-mono)}
+.eyebrow{font:500 11px/1 var(--font-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+
+/* console strip */
+.console{background:var(--console);color:var(--console-ink);border-radius:18px;padding:20px;display:grid;grid-template-columns:auto minmax(0,1fr) minmax(220px,360px);gap:20px;align-items:center}
+.portrait{width:92px;height:92px;border-radius:50%;border:3px solid var(--block);overflow:hidden;background:#000;flex:none}
+.portrait img{display:block;width:100%;height:100%;object-fit:cover}
+.portrait.speaking{animation:ring 1.2s ease-in-out infinite}
+@keyframes ring{0%,100%{box-shadow:0 0 0 0 rgba(47,107,255,.55)}50%{box-shadow:0 0 0 10px rgba(47,107,255,0)}}
+.console h1{font-size:clamp(1.7rem,4.2vw,2.5rem);font-weight:800;line-height:1.02;letter-spacing:-.02em}
+.console p{margin:6px 0 0;color:var(--console-muted);max-width:46ch}
+.status{display:inline-flex;align-items:center;gap:8px;margin-top:12px;font:500 12px/1 var(--font-mono);color:var(--console-muted)}
+.status i{width:8px;height:8px;border-radius:50%;background:var(--console-muted)}
+.status.live{color:var(--console-ink)} .status.live i{background:var(--block-hot)}
+.meter{display:grid;grid-template-columns:repeat(16,1fr);gap:4px;height:88px}
+.col{display:flex;flex-direction:column-reverse;gap:3px;min-width:0}
+.blk{flex:1;border-radius:2px;background:var(--block-off)}
+.blk.on{background:var(--block)} .blk.hot{background:var(--block-hot)}
+
+/* layout */
+.desk{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:18px;align-items:start}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.card.main{border-color:var(--accent)}
+.card h2{font-size:1.15rem;font-weight:700}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.spread{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;justify-content:space-between}
+.hint{color:var(--muted);font-size:13px;margin:0}
+
+textarea,select,input[type=text]{width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:0}
+textarea{resize:vertical;line-height:1.55;min-height:150px;font-size:16px}
+textarea.out{font:400 12.5px/1.6 var(--font-mono);min-height:230px;background:var(--surface-2)}
+
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 14px;cursor:pointer;font-weight:600;font-size:14px;line-height:1.2}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.small{padding:6px 10px;font-size:13px}
+.btn[disabled]{opacity:.5;cursor:default}
+.btn.ghost{background:transparent}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--surface-2);border-radius:999px;padding:7px 13px;cursor:pointer;font-weight:600;font-size:13.5px}
+.chip[aria-pressed="true"],.chip[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+
+.spoken{background:var(--surface-2);border:1px dashed var(--line);border-radius:10px;padding:10px 12px;font-size:15px;line-height:1.7;min-height:48px;overflow-wrap:anywhere}
+.spoken mark{background:var(--accent-soft);color:var(--ink);border-radius:4px;padding:1px 4px;font-weight:600}
+.spoken .beat{font:500 11px/1 var(--font-mono);color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 7px;margin:0 2px;white-space:nowrap}
+.spoken .empty{color:var(--muted)}
+
+.checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.checks li{display:flex;gap:10px;align-items:baseline;font-size:13.5px}
+.checks .dot{flex:none;width:9px;height:9px;border-radius:2px;transform:translateY(0)}
+.checks .ok .dot{background:var(--good)} .checks .warn .dot{background:var(--warn)}
+
+.ctl{display:flex;flex-direction:column;gap:6px}
+.ctl label,.ctl .lbl{display:flex;justify-content:space-between;gap:8px;font-weight:600;font-size:13.5px}
+.ctl output{font:500 12.5px/1.4 var(--font-mono);color:var(--muted)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.lines{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+.line{border:1px solid var(--line);background:var(--surface-2);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;justify-content:space-between;min-width:0}
+.line p{margin:0;font-size:14.5px;overflow-wrap:anywhere}
+.line .meta{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap}
+.tag{font:500 11px/1 var(--font-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.empty-note{color:var(--muted);font-size:14px;margin:0}
+
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:520px}
+th{text-align:left;font:500 11px/1 var(--font-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:6px 8px}
+td{padding:5px 6px;vertical-align:middle}
+td input[type=text]{padding:7px 10px}
+td.on{width:44px;text-align:center} td.del{width:44px}
+input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent)}
+
+.toast{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;font-size:14px;max-width:min(92vw,520px);z-index:20}
+.foot{color:var(--muted);font-size:13px;max-width:78ch}
+
+@media (max-width:860px){
+  .console{grid-template-columns:auto minmax(0,1fr)}
+  .console .meter{grid-column:1/-1}
+  .desk{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:420px){
+  .console{grid-template-columns:minmax(0,1fr)}
+  .portrait{width:76px;height:76px}
+}
+@media (prefers-reduced-motion:reduce){.portrait.speaking{animation:none}}
+</style>
+
+<div class="wrap">
+  <header class="console">
+    <div class="portrait" id="portrait"><img alt="Emmy, the Emmy STACK01 mascot, smiling in clear blue glasses and a navy hoodie" src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBAUEBAYFBQUGBgYHCQ4JCQgICRINDQoOFRIWFhUSFBQXGiEcFxgfGRQUHScdHyIjJSUlFhwpLCgkKyEkJST/2wBDAQYGBgkICREJCREkGBQYJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCT/wAARCADwAPADASIAAhEBAxEB/8QAHAAAAgMBAQEBAAAAAAAAAAAAAAUDBAYHAQII/8QAQRAAAgEDAgQDBgMFBgUFAQAAAQIDAAQRBSEGEjFBE1FhBxQicYGRMqGxFSNCUsFicpLR4fAIM0NTghYkNLLxRP/EABsBAAEFAQEAAAAAAAAAAAAAAAACAwQFBgEH/8QAMxEAAgIBAwMBBgUDBQEAAAAAAQIAAxEEEiEFMUFRBhMiYXHRFDKBofCRscEHJELh8VL/2gAMAwEAAhEDEQA/APypRRRRCFFFFEIUUUUQhRRRRCFFFegE9BmiE8oq7b6Pe3UDTQwO6qpfYHoOpqmVKkgjBGxruIQAJOACT6Uzh4a1We1F1Hakxtkr8QywAyds5ppw1pOnTWvvt2wIjzlG25z1wD8gfqabtPdafdLdvGPclBfnjkUsUJIX4QdvtStvGZ0DMwLKVJDAgg4IPavK6Hca3ZawkWmyWqhXRRI5X954v83n02xvtWGurGSO8mhijdwpJXCknlzsaROsuJVop5wzokWrzyJMdlAOAd8fp960ljBoOqPFpq2ibIQ7NKY+U83Y4PMT/vFdPAyYKpbtOf0Vp+LuG7bR3D2HiSQtIyZ5w3Jjse+fX0NZiuThBHBhRUiwSvy8sbnmzy4U7464rzwpPD8Tkbkzjmxt96JyfFFFFEIUUUUQhRRRRCFFFFEIUUUUQhRRRRCFFFFEIUV9RxtK4RRknpTFuHNTFv7wtpK8fmqk4/KlBSewnMiLK0PDmm3aOLo2asjDEZlIVZCSBjfYgZz9KRm2mUZMTgc3JuO/lWz0LSLi80IyuqDkLmEyHlPTJPquR9xSkXmdjGXU7JbvnJTxUzCAsp5HbpkqBuPXpUGoa+mqaXPp13aRRpA3L+7wW/s4z1/3jFJdP02OC/El26y20MZZGTIBYnbfvuacSz6bfWFwbiGKLxWEdukYC4P90D86QXI7eY8BuHMRX5sILHls1E3iDmLseUxnGPwjbf1zvUcuszxwrDbsTBt4jhQM9D17HNfOtWHuhC24PhBR8Rbdu528hmqFszwvHOsbFlYEZHwk0Md0RypxGviwz6lNcLM7ADKgHnyQMDbritBYakmmJDeT2ttuOcSFD+9Xod/TtvSi1KWj++TJCLiVPFDEHCn0PT8qZ6jrEf7PtreTU5bu0aMqFaJVaOQ9RnG460gNgx3GRzIW1CDWnMhs4OWP8RhHKvLkZJA2qCe3tNNlPuV4lwkkgISFCzIMZGM9d+h+dfGs6LBp1pAljcF3ZQ7gH4iTjOO2KVG9Nvd5GY5VXAY9cj1+350E55nDxwY5sriaSzuoLW4nJckGMbMw9V7+fzqvoHAx1kTxz3b2U8MhRg8JKqR2PTfpUemePJcteTwSTKQ0yloz8R37jrX3dcSXviDBdSVBUhcYIOcgfX9KWpAHMQRk5jlb6Tgq0a3s0BlbdZw2ScHcgjoPSi01W31o3F9q0NutvNGYz4Y5TzZB2I+W3XFSaZxDYafZtMbaOR3jCu7DLBuYZOD0zn06jypLf2xTUofdFeVLknnXmGQScg7bKSD22znpXNxaLwFijiLSoNLvcWshkt5PijJPMQCMjJGx60pp1xJYaja3CNewFF5eWNgQwKjYbjaktdIxGTCiiiuTkKKKKIQoooohCiiiiEKKKKIQooqSBWeeNUXmYsABjOTmiE2fDvC3uNnFrd1PEFMbOkeOcqMgcxAPr069Nqt6XxDMjNcSas0RRBIsUYPMR0KnOQM1Hrlrc6JYafFJbqYFjUSKy7xnO4J8zv8A5UlksLniGdGtAgiVQrSM2ETbue2/b5CpF/wkIsKjxujGTUZNfMpeQQwI45DNvzAnt0Gc7n/KvdV1R5IbfT4pFj8NSmAByspJ3J6kbkgf/pW3Wn6rZ2vu7kSLC+xRsjOcbZ/3iqEjPEiXh51uVJAXlwvL0z600LGwQT3iyB3xG2rRLdGBbd0iiX4SFGGJGxPKNwP86UQyTWBkYeKWU8uTsFOfXvUcOqzQSPKjsJGGAfKvbq/luYQjupUkMdz1x2FNYnSwPMdaFNb3HjzXCNLI+IkRj8JJO5O2/wAqfywabqMN173JZ2M7BIBAsZB5UOM5HQnr0PSsPb3TRuiQ/CGYEH+WmFgIdHvGlupcyDeI4OCfXB/SuERat6yHiENDdtHA6yWyfCjKDyqPLejS5UiLSySRTlUCqky8yr1wfvUF/qbXqPG6IsjuXYx7BjVddMuipYxMoBAyRtv69K7jjmIJ5yJcuL2ea56Jl1K8yAjI6571PBod9PbrfXVsxg35csFc9gMHfGf61BpLC2lAuy6gH4QN+2DkeVPrTU+YrZ3Hu0ltcHLTyHm5NwRjuvzrhOO0UozyZYj1NdKtoF94W2EnwPFnxDbj1H+yKuyzaXq0GIoZ+eZwBJL/ABbfERy9idsHPTtSTiS1sr+5Elg3LaBsGQDZiRvy7Zx5ZpNdXl3aXyF3ceEBycy8rfPGetcAzFFscGTXM8lpqEloW5bckeKgXIzjc486u6haxqtpe2PM6uwR0EgZkY9PhA2GB2zSdY7rWLlvBEkhcFnPLnJ6n596sW0txZo1zLDIGwVjBXYt/T/SljiN5zNgNHk1jh1beZo3POGUgDmi3+I8ucjOB/pS3l0PTBbwGFpJFyJD05mJwfl0HyxXzw1riQ3vj26o9+ysXM3/AC0HmuN+b/8Aal1KGXV3fWIDarFGgMvu2cLykDYEfLNdLkxe0d4ahw7omqmSLTbW9sJY25hM+ZUlUjuABjGeo+orDTRNBK8T4DIxU4OdwcVrzr93pc89sLl5o42BDK2FYFdun+zWUvSjXcxjIZC55SO4pRHwg+Yy2M8SCiiikzkKKKKIQoooohCiiprWNJJcSOFUAk7Zz5D6mugZhGOjaP74ktzLyGCFctmTl69PrWjvdC0/SoFmtYpPeEYiOQ7o5/zG+D0/WnEN5pum6WNPltTDeiBJG5ox3G+B5/h226dayqW0mqST3E90IVjQhvj/ABsSSAAe9TXVKgFXkxCAtkmW3u7iXQ1SeSMxNkv4rM7E9NhnI2xivNPuVstFn91k8OKVgSQQ5G2D8jSrTrKS4vjp0StP4pA5mB+Hvt86s31lPpVpOvhCSPm8EEjGG/F8PcjHfHeo7OW5jijbLVxf2mtTPeyllihiWILJNglwOoHU71S03TbjUZZJJ5VEMXKG7ggnGOnlmk9zcc+E5AvKPLBpvpOoj9lyWyKpmLA5J646CmVEc3ZMeXOk8PWyeEF/ey8ohRJGZgSOjZwOvnSq84OkjkWOOcOz5IAUAbDOM5xUlzqFuyC9l5Zb1Byc3XfoG9Tt+lejWXa0tiksvjJ+7B5QTg9/PzFN8iOYU95l5EaCQAnBBr15ZJmUlyxGwGK0WvWymOGMmJJApMmF/DucAkfUeVZ23XFwBsR5+lLBzGWXBxNRoek26c016h8eKPxFLMAueigbb0+0TVbW3neC85Zbp8nw5UyjEkYAA6nrsRishDe3NgFmADOyY8RxnHkRnpXkuonME5RWuGBVnVt8H/Zz86QRmPKwWWeKLQWc6qBEHkyxMcYUJk4xscdvLzpfYl7dgkiwkMpAJXmJ9PWmdxHFBYSQe9h5SeZo2XAUY2AJ8sms0ruMopODtiuryI25wcy7eX80xMfiyGNGPwnbH2qOKGe+ldlieTlUluXsPMmmel6D46CRpGjfOS23Kq4H3J6YrZNFFw3F4g57zfneFBmMLjYkrvuc7HHQ0Fsdp1ULcmY3TJHsJ1gdnt4m3aQ4zv3+Vauw1Cy4kuJjPZRtFBGzBGYozFcYOc7n09az+szQahZxajNhZH+ELyBcdcNgf69KUyXCq8cVoW5ejMp3OeoPauEZig23iXdYjhsdQjuIiiRXEfMY1AODjcEdO/3zUmk6rOLea152SAKedAcgjy27Uuv4rqScRoplVEAALh9v6fKvuxt2in8K65o+XGRyZb7UsYiMnPEe8OymKzmjubeK6jUFfAlClub0z1pBqXDuoWEDXc1sY4C/KpJHfcf79K2JsUvLeOOykMU7FXEkiLhycjY9SRgfftXqLKLVNGlt8uxYSOxYnKnqQeh/D03p0HfgTjJjmc3oqxfQ+73k8X8jsvbz9Kr02RiNwoooohCiiiiEKs6d4ZvYhKQqE4yegPbPpmq1MtC0ttV1G3t/hxJIFwX5S3oKXWpZgF7xLEAEmaPiblvYoprdpZ2hzD4g5ssx3AJPbAzSfStPlvLa4kllaKP8P4CxcgfhrWR2p4cN0jRyJHbyrgYJSRsHO/XZdtvWs3HrRt7ieBJJRBcI3KvIAVJHU99hUzVIFsy3c+IiliV+U+NH1GbSdUaW2cSSTqIleTsCcHIPXbNMr/UzBczpMxnjaQmPmGAzZ3O326/as9qMC27c8bBlz8Lhvx+tRW2oNBIjuOdlbPxDOPlULORtMfBwZe1L3efn8JjNcc2GKrt8hSv95ZyleYA9+X5dKnkkfm8VGwBvjGMZqBpQ4IK4DHdupFIHE6xzLNhcxK5acgkA8uRnB86mnEcginRZWZiPxHBc/wBkDy/Ol5UKwaJtux86+0uObk55JSy9PJaCIA8Ylu2uGhhmR8xCY/F1GRvtjv1/OqB5hIWUDI327VLK0twDJI4ITsTvmvEUIOYOQWGKJw8ySS5luIhEpDM2M42O3aiFIYwz5y67crDpt2+tRPGEIkLA56hT0qLnY58qMQz6yxc3Us6pG85lUdObflPerVhB4YjkXMyAhpFj3KkHY/pvVK3UYKvn4gCu2xNTNKLML4TAk55l3BB+fegzo9THF7epaqnuUsgkidXVZcE53/DjY19afrkunXUk0iyxNLGY+YkqPUnHz/Ok8Mo8aOeRmklB5hnYZ9TUU13LcSBZJGYE75A2rm2K345k1xdtfOUOHyx+I78o9KtaVo6m6Md7JLbBk54nIAB3756jr0r4tYLOGZYpg3Ng/Gj4OD0P08qbXl009illYSLJIijmHh7qMb4Y52J+VcJ8CdC+TLOn6DDZILqafNm+V8Z8oC3Yf7xXnFlhLp5tJo7q3uYZlDBoz8S4JHXO4qKXUJbfSYrW7unlTn53hjGCrjbcn5dutKr27nu9MhUI7Mj5woPKFPQY6f8A7QAfMUxAGBLtpqT27xG5Ed3IrECOXYJ0649KYS397LxHcTrEbgoPhjYgjOP4d+nes7bQ3cEbXb4A5WKh9wcdR88VZOpnUowsq/vVCpGF/Gw/r0pxW28iIzngzR6jBFqunXUeo6cLK8h+ISeEFYEjO/bGw6HvmsDcW725TmKkOvMCpzt0+4IIreWHEUj3dta3UYleKMRyqXHhyD19MGsfxDH4OrTxhkZFOU5RgBTuBjt1p123ruPeNsoU4EW0UUUzOQoooohCtd7OXgg1eS4eb44reVhH4eT+Hqp6BvL51kaaaHqsenSyLPGzQygZaM4dCNwQfn1qRpHCWqzeI3aCUIEbftuSG4aW+8e7tXDlFdsYJGB9Om3pSe+VZrl7mLPIQGPL2NNpraTiueIWiDxUQI3L+E7nBz2+RpNPbm3jZDzLLGSkgGwBB/Ol3Vv+Y8jwYK69h3kNvcMs8ZkZnVD067fWvmRxJM7Nlix2PSpo4xDC5nQh8cyZ71IbYJLHttygtzdid8fOmChxzFhpU/eRnl5j139Ka2fD9/qEXNHAUU/xyfDmnPAXCr6/q7TeD+4h3IO+56V1K70GK0xCFGw7VFusZELjtLPR6IW/mnJrXgK8kIBnjDeQQtTm09k97cBD72iNnqVxj7V0ex09I8Dl+tPrW2CgDtVHb1K0djL2no9HkTktz7IdRIVYL63kAJJ58jGfpVHU/Zbr6Q+N4UUhRMCOHBJA/rXd0t1xsBU8Vsp6qMfKmF6rcO/Mfbo2nPYYn5mtuCdYvgTHY3HImxQqQRj59qJuENTsYxLNp1xlt1QoVI38iMn6V+qre3BIJGw6CmcMSvvjfp8qkr1dyfyyG3Q6gPzGfi67tzGxTwpEcnPKcjB+VVzDJbsXk3bGcDc71+z7jhbRJmeWTTLR3f8AExiAY/WsDrfsc4Wu5HdLR4D/AA+G5wv0PX61IXqyD8wkRuiOfyMDPzQ3MWPKGDE+favY4WLjmBIPXHXFdi1n2OQWj+LpbtJsRySScpX5HG/yrm2q8MatphYXdm0fITl8jB/zqdTrKrfymV+o6ddT+YRVK5RVQSFh1G+cGi3vDACDzFT2O2a8LRx7sgL42Gdh6mhR7w+GbJHZR1qTIXMntZJrthEkXicrFwMgE/Pzq/p1lcxSxS3HKELHl5n5SvqAarR+Db8kyRlwGxzE46dwetTxa349rPHdgPCTkp3znt5fOud4sYHeaVzaata3FgfGQRqCJW6SPjJ7Hr5ehrFpp154uIY5CRkgqD2pvaSm8RILeV0t16Ic4yf7Q32yN6tWF/Hp5NvclFkWTLrJlgozhitHbidIDcmVrWBirRyymO58PKuy74PUN32qtxJwte6DHa3N3PFMt2CyMhJO3nmtHrkllfLY6nZo8RDiE+KcgpnIOP8AWvmRjPpt61yYZvDcyr/eA26nYEZyPnUpCrDYR9I26Y+IGYCivT1ryo8TCiiiiEKKKKIRxw5qD2lxLHzFYpI2Dtn8A/mx3x5V5qun3CSG4DyTrIctIRjnPXPXpSkEqcgkGtHpTvJod7KpSR4imVlwcDzH6VOoItT3LeMkSPZ8B3jzJJo0uNPtLhoEtyEC/GuOcgnp6Y/Q1B4c5SJ7vAcuQNtgR32/3tV1by517TLS2nj8OG3HJ4gGcYye/oa2nsq4JXi/itxcHnsrAe9yxv8AxbgKvyJ3+lPWJvxt84hT3wZufZHwy2lcKLcXEDLNcyNOSy8pKfwnHrVm6t3uL2RlXIzTP2re0nTPZ/ZLptssV3rVxHkxZ+C3Hbnx3P8AKPriuE23tm4ot5SWaznBOeR7cYHyxvVb1mlmqWinx3l903XU1ktZmdnh06UH8O1Xo7d1865/oXt0gkZI9Y0OeInbxbVuYf4Tj9a6LofE+g8TqDp16jSYyYnHI4+h/pWMv099fLrxNRp9ZRbxW3MljUjAq5EnTepWthHvtX3Gm+DUSTJZgj2Bq9EQoB3qCBBy9KtRx8w+ECnFMaefE0pI67fLpSe8fLHf504mtpCNvpSy5spSD02rjmdqAiedFbIxn5Ul1LSoLqJkkiRlI6MMg1oZYWXPMKXXR2NFZOeItxkYM4Vx/wAIw6IBf2yiON35XixkZPceVYVo5I2yu2d8DtXafaqsQ0y2jlOzy7jONgOtcjecpO68oIAIUgbnPnWs0FjPUC0xXVKkS8heIvVi5AdsipJPBLr4Knpvk9TXtzbtCVVscwG4G+PrUPMyoRjAPnU2VkcwXKWhMtorQsy/EWOQAO+BUDzCee4uyrFQvKG7DbGceVL0HMpHMdh3O1M9P92VBFNK48VSMKAR5V2KzmTRWmparaqIEdoFIOF77eX06VSu7+WOL3YM4IJDhhv6jf61rtGH7LuprUktypzLKu2fhyQe2M7GsnxFMlxqssigAsFLYORzY3qSygVB179o0c7sGLKKKKixUKKKKIQoooohCmOk6heWrNBaoZPFPxRquS+3TzpdXX/YvoEB0+XVdQtSlvNciBJ2UZYADm5e5xvk9M7VN6dS12oVFOM+ZD6hqBp9O1pXOIn0fQtWudK5IdIvhC0ofw2hOAMb5z8vzruPsI0qHRuH+Jr7EMN9NcJDbrOeUlUjyCR15edyfXBqPVp9LtIZ7rT4ZIreyhUMHbm8eUnGBtsCfPoAaUcD+0Ge2i1e1S0t44pGHLHEpAL8pyWyST1HlWpv6Wq1iwE8Y7gD+cTPaHqd+odk2jHqDmU7z2eaI+s3Fzqxk1e/lcyTXNwSA7k5OFHQVS1n2XaBep4lnA1ncAbPC5x9Qcivi/4z92dzPZWxdfiIBddvU82BVG29pWkTN+9itopGOByXrAj7rj86851tFhvayuw9/Qz07TW0LUK7Kx/WYzV+CdZ0uUiGdZlXptyt9u9VtAh1jTdVhKrMkvN+E5711K5v9KvViV7iW359w1x8UbeiyLzD7kVYs9DC8lylwiqzYjkcB4mI8nXOD8xTXvbthBAMPwtG8MpKzcR3ZeNOc5bAz86spL0z9KQW/vFvL4U64kwNgwYEeYI2Ipn4jqm4+orMupU4M1KkMuRLt7rEGlWUt3M/KkQ5j61zS7/4iJLaWZbPSoCIzhfGdst9q0fF9q2r6NNYhmTnxlgCenyrkt1wDhiZ5nXy/dGrLQ1UkFrZU9RsvBC0zXD/AIj9YkIjGm6THIf5vEI+XWqN37feKGc+DYaUw74jc/1rPWXswivHCteOCf4gAta7S/ZDo8QHi3F7J58snKPyFTbH0S91lfXT1BuxxI9D9vBursWuvadDDG//AFrfIKH1U9R8q3zvBeQpc20qTW8qh0kQ5DA9xWK1P2HaNc22dOu57abHWQ84P9RUHBg1jgbVV4b1oeJp103/ALW5Byiy+Wewby88edRWq09vxafg+knU26qk7dTyD5+8qe1TTLi4tra+CCWC3JV0HVSeh+VcsvIgzqjqwyDzAEYHlX6U1Kwimt5EmjDo6kFSOor8+a7pzabq95ZkAsJiEJ3JXtv8qs+n2HHuz4lb1ajB96PMTEI9ry8pJXdmHSqiqZoQoH4dyaYKGkzEeUcpJOF2J8qhmhQeIeYJGyZXvuO1XKJkZmedsRaq5JG4NWrezd8SO3IgGcscVWjKq4LgkelaWK2W7067ZD4EBCM4/EWYDbbyG9FKBmwYNkDIlTUdREKIIZo5A0fhMis2wwdtu2/1pETk5PWg15SbLN5gBiFFFFNzsKKKKIQoooohLmj6dJq+q2mnxbPcyrEDjpk4z9Otdis9WuxxPp9jp2E0q1liso7fGVMfMFJ+e5JPmSa557MkVuL7V26xxTOv94Rtiun6BbW+m+FqU7Y5ZUI/xBiag6nVNVYu04xzL3pmiS/T2bxndx+mP+5vuJ7KO14MeFCEa5vGKsD8REaf5vSrhPS4NK4Ai1CWJWub+7uG8Ujcop5F/wDqfvT72oXdmvD2jSRQSKsN7cwNy7ZYhcn1yP0r6l0WX/0Zo9qWMcVvbLsdss5Ln/7CthZ1K1lazPzx4mW0nRqaRXp1HAJ589/Wc84H9kmp+1Tii7l1OT3fSbB4wY0Y/vmfJH5Ak/QU39u2h8F+zOO04e0LQLKfVriDx5ri5QMltFkhfh/idiG6nAAzvkVteD9dj4J4gMih3sb6OIziMZKOg5Q2O+3lvWZ/4htGsOIdbi4mt7mO50y9s0tJZYmBNtKhbl5x1VWDdcdQR5VmrNSuTzkiXj6N1YccGcTSzn4b4atOIrbW9KvLLUp5IJdKWXE6cvVmi/hXyYennW14K1o2uo2yRSs9le8sciN0kRuhP9pScg9QRXO4ODpw6x2sy313OxigggXJY+Z8h69sV1DhPhE6Rd20N4yyRaZzNK6HIYqAdvMc5xUe0o7Ap5OI9pVsQMr9sZm8tdThgsLTnTxAWkGQADsetNrjiO3v0jtzCkSooGFjA5vUmldnccOI+n28k8jyCMtMmD+5ZmJ5TjqcY6edabUOH9Kkc3djMDaHAyWBJI6479dsEA1DurD3lVPbGZcVWhaQzjvnHEw3Ems2+nqbeG3Sdl6/GVAPltufvWZbiXwgHlsYBnZVWWfmJ9MPTC/0Z3uOVAWHXJqvoHs71PjzXZ9Ns7k6fZ2ic19qBX/lLjPhp/aI3J7DFN6a5mO2szmrrCLvsHafVrx5HC6wz2+nW/MQD71qJUj/AMWD4p3ae0Dh4/C2nWtwR/FYXMUp+fLyxtXCI4OG5+KIUvXurDRpLgIHiHPKIubHiMSd2xv5dhWn0XhHhLXvaCeFtFvri+0y/laHTtSdfDmifGV5h0KkgruPI7dKtRpyRktmUZ1gDYC4/Uztmn8RaDqsebO5EZHVJ1kTB8iQXx9qmuNPtL+0MNzGskUhzkMJF26bjGD+dcPv7DWOAOK20LWp2ZsfuLjp4ijs3mf99DXReGtZuJQYecDmjYknuFUn+lSdB05LLwliAg+Rwf2nNd1Jq9K1yOQVGcHnt45mhv57eNSJJQCdhk1wjjqWKXX78+H+9VwA3cDA39a7JxFr/vegQ2AtreIW4OJwgEjMfNupHzqDUtR0GexhjvoLHVY1CxBMJKRgY27jpWit9lKq/jrbaeeCQf5+8xTe3OosC1vV7wE8FeD27c8E8/KfnxllWdeZSNwfkaqakxt7dLf4WZ/jJO5A7f1romscP6bxJqDScKWt8jrKYri1ly0akj8SOSdhjBUk4yMVR1P2R8SwQz3zaS13yrkRwyhmUDyXYnbyzVKz1Uk1NYu4/OaOiq7UoLkqbHzBmHe3EVjHdSxBlL8gBbBO2frUFxqUs0YhUBIgdlWi/v5borGy+HHFkLGP4ap0i27nCHicVfWFFFFR4uFFFFEIUUUUQhRRRRCPOCdQTTeKtNuJG5Y/GEbnyVvhP6113V4WXR57cA5gdlbH61wcHBzXaeGuITxDoUd2uHuolFvex93ONn+o/PNVnUKicWCaDompC7qW88j/ADO2Wsdr7QfZzbPYRo15DyXLqWH/AMpF5JI9+hYFWXzp5xJbRwWVhZYGY7aMMB58oBriWlwarwbxJbLot/JGZpY4rqJyDHIjEZUqRg4ztnoa7DxvxhHaaq9pNbLNg4MmBkY8wR+YIqzq1O7TOG4xwZGbTlNYgXkckRDJofjozLIEboARmqw0m6jwviwtjuwz+opnFxPo8qhTJ4TdwRt/WrMNzpU5zHfQb7/E2P1rJXoxbIIM1ldgAwQR+kRy2skEBUMhzuQsYA/SlV/Z/s+zEaIxuJ25+TGA7fwg+Sr+I+prZy6loWmnxb67jkUdIYGDyOe2FGd/ngUms0u9buPf7u393UnligPVEHY+p6n1+VdS1qFL+Y06LewTxPrhbhSwt4Ua6iWed/ikkkGSSetRWFk2ncS3FipJif8A9xbg77dGH6fYVpU54k+FAMeQpRq0q2k9vqTKxe0fxGA6vGdnX7b/AEqHptSyWhie8kXUB0KgcSubZLe/clMAEruM8vka0XAmt6TwpYT6VqMcjpcNIZJkHMZi/wCJjnB3yfPAxUt1pClVvY5PGgmVcSBfhzjIwe4IwRSy40xZ05WjDKPOpnvXotJWRDVXqaQrczg3E3s0aOaTTmgungtZWFtfW9szCeL+Ek4yNsZXsQa0fsZ4N07SOKrHiDUzLY6fpEhmjaVSJryUAhVWPGSATknAGwFdMXSpIvhhupIvRt8UNoMsuTNdM+dyAMfrUurqTqZDs6TU3n7zK+0CePjbiV9SXT/CggTw4ucAuRnJY+RO32o4Y0NLeO8u2R3KQmJRjozkAfkGrStp0VofDUbNsc01a0XRtC8WVQpU+MynqXIxGv23+pq/6VrmQm0mVfVenVvV+HxweJy7iyCUyXDEiOC0jOT5sBlj99vpXLuB+D4eI9WZrkslvGQzspxzMd8bV0nj28934fuuYktN+79SWO/9aTWUT8I8PQBoyJWQzHA3dz2/QfSo/Ueo23bnJ+Jpzp/SqdPspUfAgnQP25o3A+kxWdlZrPdEfuYUAJJ8/wDU1kLv2kcTLfpJc20EcCNl4lB5gPPm8694F1HRdX1AXGoC5h1M45g+GQj0Pl6VouI9Kt7i5kRFUB0Jz8qzQVEba4yfWa2tWcbkOBORe2vTbUa9a67ZxpHHq8RllVBgGZSAzf8AkCrH1JrnNdQ9sBS20jhyx/6ixySHzAIQf0/KuX1p9I5elWbvMP1Sta9U6r2/6zCiiipEgQoooohCiiiiEKKKKIQrT+znipeEeKbS+uMtZM3h3KYzlD/FjuVOGHy9azFFAnVYqcifomTWbKPUIb2CaO55po3SZTzKw5geYGt17RI4hxBIQA4LNufPNfkGK6niHLHNIi9cKxAr9e8ZyJqmk6bq9vgpd2sNwGHfnQH9abGlJ01yKe/P9DLbT9RDauosMcEf2lPTkt3Uc0UZI81FMzY6fIuGtISPRcfpWb0645EG+aYpf8rBSwz2FYl0OZt/eAiR6lqOkcOvlbaMTFecYXoB1PrUXDvtEtNWlaSOdHjQ8pwMFPLIO4rzWNLttWi/fRhjj4SDgj5Gs2vBV57wPciOYDHO3UjyJ71IUVum1uDIrtYr5XkTrB47so7FonjgYHfPL8Qqlb3VprB8RmQJg/Cx65rAQcDatqjG1urhYYf4hHI2T9u1fcHsvu9IuFl0iQxyA/Gz3cnK4PmpBptqUI5bmCOUPwLgH5zoei6/faBG2lxxPqWjxPmOLn+O3DblRnZlz2PTtimT8UaE7YZLi1z1DxMAP1pTo2knTLHwppvHnkPPK46Z8h6CpWma3JQnKnzpX4hwNrc/WJOmrJLLxn0jCPWuHZDkatAno+36gVdFzo80ZKaraEY7SL/nWfnNpKvLJBC3zjBzSPUbCwILLAEPXMZK0tdSg/4D94fhHPZz+01Mmo8Naa3vVzfLcSI2RGqmQ/4QMH6tiszxJxY2vT5jjaG0UllRmyzMerOe5/IVmLqPwpGYSuy+THNQmYlOUVa6fUNZhQMAekg36ZazuYkn5xbqkD65rdpakc1tE4kkHmewp9xZaW94mmWkGHnt3Lso6FSMYNV9GsJrnx54vhweXxMZwf8ASnWl8Nx6BbO1xqhuJpTkMi/Fn5nNQtXdmzjxJOlpwuT5mRj4cNvraLboQ4O48hWmbN1cyRk/AqeGzeQ/iP22+tWVQCN10+CRXk/5t5cHoO/LXLvaX7RLWzs5OHtAm8SRhyXN0p7d1U+fmaapqfUPtH/kkajVVaSou3/sxPtK4jTiTiiea3bNpbgW8GOhVe/1OfyrK0UVq60CKEXsJ59da1rmxu5hRRRS43CiiiiEKKKKIQoooohCiiiiEK/Tnsq4gTiv2XWtjK3NdaOWspB38PJaI/Ykf+NfmOtr7KONhwZxIGunI0y+UW92B/CM/DJjzU7/ACJqVo7FS0bux4P6xuwHhl7jmdlhU2900bbDtVTW4NT05k1SzX3q3X/m24OHPqvY/Kmmvw8rCaEqwG4ZTkEdiKLe7E9pyE9qzXVdEdJqSMcTbaDVDU0A55iCH2jQ8wSSBYCOvihgfzxTzSvaBbkhiIZEY4JjOCP6VWaaztXUSpG0ZPxKwzinNtwxwbqcfPPaRROQSHh+Bs/MYqBYlee2JY0byuQcxhZ8X6Z47SjxiSMblR+VNYuItNuNvekRj2k+H8+lZ+L2W8NzR841e5g7/FcMN/oKVX/AemwOY7XX9QkUdsKw+5FNGpMd458ROMf3+02txfrGueYEHoQc5pI/EME05gD/ABqcEeVZy04HkuHz+3dSiiX/ALZVSfsKcRcG6LpMou7UXBuGXlkkmnaRpPU52+wFNFEHnM4WcHGJfe7ITvmld9qPwEZr6vLuOFSoO3as5dXJkY74FFVJYzr3BRPqS4aaQgeeaqcQaxFw/os99LuyjCL/ADMeg+9fccqqc1huOfeuJ7mKC1u7NLS3/haUAs/ckenT71ruk9LtvU+6XMzPVupJSMs2JqPZp7TrKLTvcr+ZUmJJbnOOYk9RWs1H2g8OaZCZ7q8i+EZVQeZifQDrXBG4G1LGUktn/uvn9KrzcIarD+KJT65I/UU5d7K6gPvathK+n2pUV7AVJ9czRcbe1nVOJne1si1jp/QIpw7j+0R0+QrBner76FqKf/zM39whv0NVJrWe3OJoZIj5OpX9aWNIaBt2bR9JBt1baht7tkyKiiiuREKKKKIQoooohCiiiiEKKKKIQor2nOicJatrqGa2tuS1U4a6mPJEv/kep9Bk05VS9rBKwSflEWWpWu5zgfOJamt7We7lEVvDJNIeiRqWP2FbeHhnh7R8G6ll1acdVGYoAf8A7N+VSXPE80UJtrJYrK3/AO1bII1+uNz9c1oaPZuzG7VMEHp3P2/eVrdT38ULn5ngff8AYTcezG+1E6UuhcQRiCSEYsjK48SRP+2Vzn4e2e23YU6lt5bK6aI59PlXE/2lcJOs6SuksbB0cHdSNwQa7bw5xDDxlocV+3Kt/bkR3aDs3ZgPJuvzyO1RvaDptT6XNOSUHnuRLjoWssru2WkYb0le7snuFIKkg+VJ5NGuoT4tvdzW+P5WIroNjGjKuQKcRRQlOVkQg+YBrzP8QV4m+9wDzOYWqa7nH7SkdPmP8q0Wn2s5A8eZn8xnrW4/ZunSLk2cIbHUKAap3Gn28IJRQBSHuz4i1QjzF6TCBAAQAO1UNQ1LlU71JqEioDv0rJarqaqSC4pVNW8xFtmwcz7vL8sT8VKZ70A/ipRqGvxRZUMWbso3NU7aG81WTMhKRH+EVdU0LWN1kqbL2c7UjltQMtvdTJvFbwvIzdiQpwPviubpM+2c10nVIBY8K6kqADMPL9yBXMlZh5Vtui25o3LwMzK9XQi0KfSXUuXXuauW+qTQkBZHHqDVex0y/wBR/wDjWkkg/mGw+52q3dcO6npsfj3No6xDq6kMB88dK1NVlwG5c4mdsNOdjEZ9MxpFrPMoE4WUHtIob9atJLp9ymJIOXPaJyo+2cflWcUK6bNg17ZzFJwGPTYVLGozgOAcyI2lHJQkH5R7Nwvo97kL4HOe00ZU/wCKPH5g0l1XgA20ZmTxoU/7gxNF/iGCv1FWorx47kljTnTeIJLcK/O2ScAZqNd03RanOV2n+fr+8SNVrKOVbcPQzm9/oN/p8fjSQ88B6TRHmT7jp9aX12m90VNQt5NR0uMQ3qKWkt49knXvhezeg2PzrD3/AA3b6zAbrTI1hu8cxgGyS/3fJvTofSsv1DoL0MRXz8vX6ev07y40PVU1K5PBHf5fz1mNor1lKMVYEEHBB7V5WdltCiiiiEKtadpl1qtx4FpEZGxzMeiovcsegHqam0TRbjXL0W0JCKBzSSt+GNe7H/Lua6pwppdjZ209zbxj3GycIgcZN1cYzzP5hRvjpkqPOrfpfSn1jjPC5x9fp/k+JX6/Xppayx5P8xFmjcD6Tw7bpe60q392wDR2zZEa+RYdT8j18hUet8QT3jBS+FUYRFGFQeQA2A+VfOv6nLdXUis5Yt8WSc5PnSC4nx169K3oro0Ke604x6nyZRVJZqGF15yfA8D6T5nmZ8ksapySBe9eSyMxySRU+maNdavKVgX4F/HI34V/35VUPY9r7UGSZbALWu5jgSk02TntT3g/W9R0LVFu7aCSWGQeFOgB5XQ+vmOo+VXP2Zp2jJ+FZ5h1eQZ+w6Clt7rLuSobAHQCnbNCtY/3D/oI3Xqy5zSv6mdktuIVsblrW6flKnAPmKfR6zEyqUcFfPNc41cpd2tpdLuZYI5M/NRmksl3eW0fNBcSDB6ZrynqHR1W9hUeAZ6LpOqN7tS4zO6Qa5EFI5gfrVHVeJIIkJZwAB0zXEW4p1oKQsv1yaozahql8f39ywB7LVavTjn4jJbdTGPhXmbbiLjyAM6Rvluyjc1jZ9Sv9Uc4JiQnr3ostI5zzLGST1Y960WmaGOdcrzH9KmBq6RhZDItvOWlHRuHTI3O6kk9z3rY22mJbxbKAfOmOm6UIUG31NT3UQQED7VBsvLmWFWnCCZniDkTQr4FQw5MkH5isHYXVo90kYt4if7o3NbjieMzaXdw5x4kbLn6Vz7gDSJL3VmuZQwiteoPdz0H06/at/7Katzt01YySZiPamlVze5wAJ0izg5I1XbpV+3k5co2CpGCCNjXykIjXfrUUj8jV64ACNs8jc+8JmS4t4UFmX1LTkb3c/FJEn/S9QP5f0rI84YgrJv6112K6znfpWR4n4QWdmvdJUJJ1eAbK3qvkfSqPXdOYZspH1H2mh6Z1PtTqD9D9/vMobl1YMfrVyG4DxqwO6sDSlZmRjHIpDA4IIwQa0fC/C97rsweIGK06STMNvkvmaq9PYztgcy51RrqQvYcATe8DB2T3tm2DnBPpWOvitrrOpe7sBGtzIUx0Azn+tbPV9VteGdKW0teXnCckaZ3Pqf6mudyXJEpDjDvluYbhqf6tao2Ln4hKbodb2W2akjCtwIn4ytENxFqUQA96yJQO0g6n6gg/PNZutvq1uLnQLqMgFoSJk9MdfyJ+1YisR1WrZduH/IZ+/7zY6Z9yY9IV6K8pnwzYjU+INOs2HMktwisPNc5P5ZqvrQuwUeY8zBQSfE3unacvDfDcdtjkvbpVmnwuXOfwr6AA/cmtLp8fJwTYcoyzq8z4/mZif0xSHXL4md1B/fOxZsbnGdhT/hK6W90MWTY8S2JTB8icivTOmqlV4qXsowP56zFdaLmlbT/APQJ/oZz+/fkkIPxNvj70udsZzuepNMuKLd9N1eaFgQNih81NQ6Jp37Rm8ScEQKen858vlTdoa273S95a1Oq0i09sZn3ofDs2szB5Mx2ud27v6D/ADrazwQaZZLb26LGijYCp9NVQuyhVUYUDbAqHVt0NXmn0aaZCV5byZQajWPqLgrcKPEwGt3jveNHk7daTTTANuau644hv5W9BtSUc0hLdu5PasD1LWMLWXuczY6Soe7B+U6xpU3vXDWnMTnEAX7Ej+lU548owxXzwlLz8NWq5yFLgf4jVq4XfYdayWvsPvcnzNZpV3VCIxGysQRmmFnY+IwZgCfKrkFgZCMYp7p+mIgBbf5VTW24lhVTmQ6fpxOPhx860unaaqYOMHzNeW1ssYHw4amdqmBv1qussJllVWBJQnIvw/n1qlc4IYk/Wr8jYG9LrnLk56CmxHWmU4ocRWbDu1HDOmLa2ankAaT4326kiq2t3EV1rVvpynndjzuoP4UHc1pLOIRxrtivWfYDp5VH1rj5D+5/x+88m/1A6kMrpEPzP+P8z4mHw470tuVkU4IyTTO4ypzivhZFbaRA3zr0tGwMzzepyoziJ8spzUsLvMwjRSzHsKcjSredcmNkHmDiqmoazpXDsPIhDzH+BN2Pz8qTbq6613NH0tNx2VKS0py8EaZeXaahqUIZl/EinCv/AHvOotb4vtdPiFrpsaMVHKCgxGnyx1+QrOa1xRfaqHR38KHtEh2PzPekK3BKMG7/AJVkdX1hQx/DjBPczSaTotlm19a2cdl8CWb3UJJ5GnmcySP1Ymqkk3OqP5GoWlKkqfiz2r2Bc/CxAB3A8qoveFmy00QQKML2jmzEdwBbTEmOdfDYjYgEYNY7W9EudEuzDOOZDnw5QPhkHp6+Y7VqrQMyhW2cbg03lig1e3a0voyUfc+at/Mp7GpOo0a6urGcMO32MbrtNTfKf//Z" width="92" height="92"></div>
+    <div>
+      <div class="eyebrow" style="color:var(--console-muted)">Emmy STACK01</div>
+      <h1>Emmy Voice Studio</h1>
+      <p>Write a line, hear it with Emmy's pace and pronunciation, then export it for a voice actor or a speech service.</p>
+      <div class="status" id="status" role="status" aria-live="polite"><i></i><span id="statusText">Ready</span></div>
+    </div>
+    <div class="meter" id="meter" aria-hidden="true"></div>
+  </header>
+
+  <div class="desk">
+    <section class="card main" aria-labelledby="scriptH">
+      <div class="spread">
+        <h2 id="scriptH">Script</h2>
+        <span class="hint">Type <span class="mono">[pause]</span> for a spoken beat.</span>
+      </div>
+      <textarea id="script" spellcheck="true" aria-label="Script for Emmy to say"></textarea>
+      <div class="row">
+        <button class="btn primary" id="play" type="button">Play preview</button>
+        <button class="btn" id="stop" type="button">Stop</button>
+        <button class="btn" id="emmyfy" type="button" hidden>Write it as Emmy</button>
+        <button class="btn ghost" id="undo" type="button" hidden>Undo rewrite</button>
+        <button class="btn ghost" id="saveLine" type="button">Save line</button>
+      </div>
+      <div>
+        <div class="eyebrow" style="margin-bottom:8px">What the voice will say</div>
+        <div class="spoken" id="spoken" aria-live="polite"></div>
+      </div>
+      <div>
+        <div class="eyebrow" style="margin-bottom:8px">Emmy line check</div>
+        <ul class="checks" id="checks"></ul>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="voiceH">
+      <h2 id="voiceH">Voice</h2>
+      <div>
+        <div class="eyebrow" style="margin-bottom:8px">Mood</div>
+        <div class="chips" id="moods"></div>
+        <p class="hint" id="moodNote" style="margin-top:8px"></p>
+      </div>
+      <div class="ctl">
+        <label for="rate">Pace <output id="rateOut"></output></label>
+        <input type="range" id="rate" min="0.7" max="1.4" step="0.01">
+      </div>
+      <div class="ctl">
+        <label for="pitch">Pitch <output id="pitchOut"></output></label>
+        <input type="range" id="pitch" min="0.6" max="1.6" step="0.01">
+      </div>
+      <div class="ctl">
+        <label for="volume">Volume <output id="volumeOut"></output></label>
+        <input type="range" id="volume" min="0.2" max="1" step="0.01">
+      </div>
+      <div class="ctl">
+        <label for="pause">Length of a [pause] <output id="pauseOut"></output></label>
+        <input type="range" id="pause" min="200" max="900" step="50">
+      </div>
+      <div class="ctl">
+        <label for="voice">Preview voice</label>
+        <select id="voice"></select>
+        <p class="hint" id="voiceNote"></p>
+      </div>
+    </section>
+  </div>
+
+  <section class="card" aria-labelledby="libH">
+    <div class="spread">
+      <h2 id="libH">Line library</h2>
+      <span class="hint">Lines from the Emmy voice guide. Load one, change it, hear it.</span>
+    </div>
+    <div class="tabs" id="libTabs" role="tablist" aria-label="Line groups"></div>
+    <ul class="lines" id="libList"></ul>
+  </section>
+
+  <section class="card" aria-labelledby="rulesH">
+    <div class="spread">
+      <h2 id="rulesH">Pronunciation rules</h2>
+      <span class="hint">Applied to every preview and export. Naira amounts like ₦50,000 are read as "50000 naira" automatically.</span>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>On</th><th>Written</th><th>Spoken as</th><th></th></tr></thead>
+        <tbody id="rulesBody"></tbody>
+      </table>
+    </div>
+    <div class="row">
+      <button class="btn small" id="addRule" type="button">Add rule</button>
+      <button class="btn small ghost" id="resetRules" type="button">Reset to Emmy defaults</button>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="exH">
+    <div class="spread">
+      <h2 id="exH">Export</h2>
+      <span class="hint">Take the final audio from a voice actor or a speech service. These files carry Emmy's settings with them.</span>
+    </div>
+    <div class="tabs" id="exTabs" role="tablist" aria-label="Export formats"></div>
+    <div class="ctl" id="voiceNameBox" hidden>
+      <label for="voiceName">Service voice name</label>
+      <input type="text" id="voiceName" value="en-NG-AbeoNeural" autocomplete="off" spellcheck="false">
+      <p class="hint">Azure Speech lists Nigerian English voices under en-NG. Check the name against the voice list in your own account.</p>
+    </div>
+    <p class="hint" id="exNote"></p>
+    <textarea class="out" id="exOut" readonly aria-label="Export text"></textarea>
+    <div class="row">
+      <button class="btn primary" id="copy" type="button">Copy</button>
+      <button class="btn" id="save" type="button" hidden>Save file</button>
+    </div>
+  </section>
+
+  <p class="foot">Preview voices come from your browser and device, so they sound different on each one. Use them to check wording, pace and pronunciation. The finished Emmy audio comes from a voice actor, or a speech service reading the exports above.</p>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(function(){
+"use strict";
+var $=function(s,r){return (r||document).querySelector(s)};
+var store={
+  get:function(k,d){try{var v=localStorage.getItem("emmy."+k);return v==null?d:JSON.parse(v)}catch(e){return d}},
+  set:function(k,v){try{localStorage.setItem("emmy."+k,JSON.stringify(v))}catch(e){}}
+};
+
+/* ---------- data ---------- */
+var MOODS={
+  friendly:{label:"Friendly guide",rate:1.0,pitch:1.12,wpm:"about 155",sheet:"Warm, smiling, steady. A helpful older cousin.",note:"Everyday default. Warm and steady."},
+  tutorial:{label:"Tutorial",rate:0.88,pitch:1.06,wpm:"about 135",sheet:"Calm and clear. Slow down on steps and numbers.",note:"Slower, for steps and walkthroughs."},
+  promo:{label:"Promo",rate:1.08,pitch:1.18,wpm:"about 165",sheet:"Upbeat and quick. Never shouting.",note:"Quicker and brighter, for intros and posts."},
+  celebrate:{label:"Celebrate",rate:1.04,pitch:1.26,wpm:"about 160",sheet:"Proud and bright. Lift the end of the line.",note:"Bright lift for wins and milestones."},
+  reassure:{label:"Reassure",rate:0.9,pitch:1.02,wpm:"about 140",sheet:"Calm and kind. No blame, no hurry.",note:"Slow and calm, for errors and stuck moments."},
+  formal:{label:"Formal",rate:0.92,pitch:1.0,wpm:"about 140",sheet:"Clear and even. No slang. For money, files and security.",note:"Even and plain, for payments, signing and security."}
+};
+var MOOD_ORDER=["friendly","tutorial","promo","celebrate","reassure","formal"];
+
+var LIBRARY=[
+ {id:"greet",label:"Greetings",lines:[
+  ["Hey, I'm Emmy. Let's build something.","friendly"],
+  ["Hey, it's Emmy! Ready to stack something awesome?","friendly"],
+  ["Hey, I'm Emmy. Got a business, a brand, or just an idea? Let's get it online. [pause] Pick your website, we sync on strategy, and it goes live in 14 days. [pause] Ready? Tap Start your project.","promo"],
+  ["Oya, let's go. I'm Emmy, and today we're building something you can use right away. Stay with me.","friendly"]]},
+ {id:"guide",label:"Guidance",lines:[
+  ["Quick tip: start small, then build up. Every big stack starts with one block.","tutorial"],
+  ["Paste your site link. I'll check it and show you what to fix first. [pause] Start with the big wins. Small tweaks can wait. Ready? Let's run it.","tutorial"],
+  ["No wahala. Let's break it down.","reassure"],
+  ["Welcome in! Give me two minutes and I'll show you around.","friendly"]]},
+ {id:"problem",label:"Problems",lines:[
+  ["That didn't go through. No wahala. Check your connection and try once more.","reassure"],
+  ["Hmm, that one didn't land. Happens to me too. Try this instead.","reassure"],
+  ["Still stuck? Message us on WhatsApp and we'll sort it out together.","reassure"]]},
+ {id:"win",label:"Wins",lines:[
+  ["Nice. That's one block on the stack.","celebrate"],
+  ["New level unlocked. Your site is live. Keep stacking.","celebrate"],
+  ["Done. Well done. Your site is live.","celebrate"],
+  ["You just hit a new level. Seriously, nice work.","celebrate"]]},
+ {id:"tools",label:"Tools",lines:[
+  ["One tap, and they have your contact. Save contact, done.","friendly"],
+  ["Let's plan your posts, one block at a time.","friendly"],
+  ["Join your next call looking sharp.","friendly"],
+  ["Review it, sign it, send it.","formal"],
+  ["Your invoice is ready. Check the details and the total in naira, then send.","formal"],
+  ["Invoice total: ₦50,000. Check it, then send.","formal"]]},
+ {id:"promo",label:"Promo",lines:[
+  ["A link in your bio is not a website. Get a real one, live in 14 days, with hosting on us. Sharp sharp. Start your project today.","promo"],
+  ["Simple per-page pricing. You know the cost before we start.","promo"],
+  ["Hosting, domain setup and Google indexing are on us.","promo"],
+  ["Know a business that needs a website? Let's grow together.","promo"],
+  ["See that tag at the bottom? That's my seal of quality.","promo"]]},
+ {id:"saved",label:"Saved",lines:[]}
+];
+
+var DEFAULT_RULES=[
+ {on:true,from:"@Emmy_STACK01",say:"at Emmy Stack zero-one"},
+ {on:true,from:"emmystack01.com",say:"emmy stack zero-one dot com"},
+ {on:true,from:"STACK01",say:"Stack zero-one"},
+ {on:true,from:"SEO",say:"S E O"},
+ {on:true,from:"UI/UX",say:"U I, U X"},
+ {on:false,from:"Naira",say:"Nye-rah"}
+];
+
+var EXPORTS=[
+ {id:"ssml",label:"Speech service (SSML)",ext:"txt",note:"Paste into Azure Speech or any service that reads SSML. Pace and pitch come from the sliders. Saved as .txt; rename it to .ssml if your tool needs that."},
+ {id:"text",label:"Clean text",ext:"txt",note:"Pronunciation-ready text for any text-to-speech tool. Each [pause] becomes an ellipsis."},
+ {id:"sheet",label:"Recording sheet",ext:"md",note:"A one-page brief for a voice actor: script, mood, pace, accent and pronunciations."}
+];
+
+/* ---------- state ---------- */
+var rules=store.get("rules",null); if(!Array.isArray(rules)||!rules.length) rules=DEFAULT_RULES.map(function(r){return Object.assign({},r)});
+var saved=store.get("saved",[]); if(!Array.isArray(saved)) saved=[];
+var mood=store.get("mood","promo"); if(!MOODS[mood]) mood="friendly";
+var settings={rate:MOODS[mood].rate,pitch:MOODS[mood].pitch,volume:1,pause:450};
+var s0=store.get("settings",null); if(s0&&typeof s0==="object"){ ["rate","pitch","volume","pause"].forEach(function(k){ if(typeof s0[k]==="number") settings[k]=s0[k]; }); if(store.get("moodCustom",false)) mood="custom"; }
+var libTab="greet", exTab="ssml";
+var synth=("speechSynthesis" in window)?window.speechSynthesis:null;
+var voices=[], runId=0, speaking=false, prevScript=null, aiCtl=null;
+
+/* ---------- helpers ---------- */
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+function xml(s){return esc(s).replace(/"/g,"&quot;")}
+function reEsc(s){return s.replace(/[.*+?^${}()|[\]\\\/]/g,"\\$&")}
+var toastT=0;
+function toast(msg){var t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true},2800)}
+function setStatus(live,text){var s=$("#status");s.classList.toggle("live",live);$("#statusText").textContent=text}
+
+/* ---------- pronunciation ---------- */
+function pronounced(text){
+  var parts=["₦\\s?\\d(?:[\\d,]*\\d)?(?:\\.\\d+)?"], map={};
+  rules.filter(function(r){return r.on&&r.from&&r.from.trim()}).sort(function(a,b){return b.from.trim().length-a.from.trim().length}).forEach(function(r){
+    var f=r.from.trim(); map[f.toLowerCase()]=r.say;
+    parts.push((/^\w/.test(f)?"(?<!\\w)":"")+reEsc(f)+(/\w$/.test(f)?"(?!\\w)":""));
+  });
+  var re; try{re=new RegExp(parts.join("|"),"gi")}catch(e){return text}
+  return text.replace(re,function(m){
+    var out;
+    if(m.charAt(0)==="₦") out=m.slice(1).trim().replace(/,/g,"")+" naira";
+    else out=Object.prototype.hasOwnProperty.call(map,m.toLowerCase())?map[m.toLowerCase()]:m;
+    return ""+out+"";
+  });
+}
+function spokenPlain(){return pronounced($("#script").value).replace(/[]/g,"")}
+function renderSpoken(){
+  var raw=$("#script").value, box=$("#spoken");
+  if(!raw.trim()){box.innerHTML='<span class="empty">Type a line above, or load one from the library.</span>';return}
+  var h=esc(pronounced(raw)).replace(//g,"<mark>").replace(//g,"</mark>").replace(/\[pause\]/gi,'<span class="beat">pause</span>');
+  box.innerHTML=h;
+}
+
+/* ---------- line check ---------- */
+var TOUCHES=["no wahala","oya","sharp sharp","well done","abeg"];
+function runChecks(){
+  var raw=$("#script").value.replace(/\[pause\]/gi," ").trim(), ul=$("#checks"), items=[];
+  if(!raw){ul.innerHTML='<li class="ok"><span class="dot"></span><span>Type a line to check it against Emmy\'s voice rules.</span></li>';return}
+  var sents=raw.split(/(?<=[.!?…])\s+/).filter(Boolean);
+  var long=sents.filter(function(s){return s.split(/\s+/).length>15}).length;
+  items.push(long?["warn",long+(long>1?" sentences run":" sentence runs")+" past 15 words. Split "+(long>1?"them":"it")+"."]:["ok","Short sentences."]);
+  var low=raw.toLowerCase(), touches=TOUCHES.filter(function(t){return low.indexOf(t)>-1});
+  if(touches.length>1) items.push(["warn","More than one Nigerian touch ("+touches.join(", ")+"). Keep one."]);
+  else if(touches.length&&mood==="formal") items.push(["warn","Formal lines stay free of slang. Remove \""+touches[0]+"\"."]);
+  else items.push(["ok",touches.length?"One Nigerian touch. Good seasoning.":"No slang. Fine for any context."]);
+  var emo=(raw.match(/\p{Extended_Pictographic}/gu)||[]).length;
+  if(emo>1||(emo&&mood==="formal")) items.push(["warn","Use at most one emoji, and none in payment or security lines."]);
+  if(/guarantee|#1|last chance|hurry|act now|only today/i.test(raw)) items.push(["warn","Avoid promises and pressure words such as guarantee or last chance."]);
+  else items.push(["ok","No promises or pressure."]);
+  if(/stack\s?0?1/i.test(raw)&&/stack\s?0?1/.test(raw.replace(/STACK01/g,""))) items.push(["warn","Write STACK01 in capitals."]);
+  ul.innerHTML=items.map(function(i){return '<li class="'+i[0]+'"><span class="dot"></span><span>'+esc(i[1])+"</span></li>"}).join("");
+}
+
+/* ---------- meter ---------- */
+var COLS=16,ROWS=8,levels=[],shown=[],raf=0,energy=0;
+var REST=[2,3,2,4,3,5,3,2,3,4,2,3,5,3,2,2];
+var reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+(function buildMeter(){
+  var m=$("#meter"),h="";
+  for(var c=0;c<COLS;c++){h+='<div class="col">';for(var r=0;r<ROWS;r++)h+='<span class="blk"></span>';h+="</div>";levels.push(REST[c]);shown.push(-1)}
+  m.innerHTML=h; paint();
+})();
+function paint(){
+  var cols=$("#meter").children;
+  for(var c=0;c<COLS;c++){
+    var L=Math.round(levels[c]); if(L===shown[c]) continue; shown[c]=L;
+    var b=cols[c].children;
+    for(var r=0;r<ROWS;r++){b[r].className="blk"+(r<L?(r===L-1?" on hot":" on"):"")}
+  }
+}
+function tick(t){
+  var moving=false; energy*=0.93;
+  for(var c=0;c<COLS;c++){
+    var target;
+    if(speaking){var base=2+energy*3.5;target=Math.max(1,Math.min(ROWS,base+Math.random()*3+Math.sin(t/170+c*.7)*1.6))}
+    else target=REST[c];
+    levels[c]+=(target-levels[c])*0.33;
+    if(Math.abs(target-levels[c])>0.15) moving=true;
+  }
+  paint();
+  raf=(speaking||moving)?requestAnimationFrame(tick):0;
+}
+function kick(){if(reduce||raf)return;raf=requestAnimationFrame(tick)}
+function bump(){energy=Math.min(1.6,energy+0.9);kick()}
+
+/* ---------- voices ---------- */
+function voiceScore(v){
+  var s=0,l=v.lang.replace("_","-");
+  if(/^en-NG/i.test(l))s+=100; else if(/^en-(KE|GH|ZA)/i.test(l))s+=26; else if(/^en-GB/i.test(l))s+=20; else if(/^en-IN/i.test(l))s+=10; else if(/^en-US/i.test(l))s+=6;
+  if(/male|daniel|arthur|david|george|james|mark|aaron|fred|ryan|guy|thomas|oliver|abeo|eric|christopher|rishi|prabhat/i.test(v.name)&&!/female/i.test(v.name))s+=15;
+  if(/natural|neural|online/i.test(v.name))s+=3;
+  return s;
+}
+function isNG(v){return /^en[-_]NG/i.test(v.lang)}
+function loadVoices(){
+  var sel=$("#voice");
+  if(!synth){sel.innerHTML="<option>Not available in this browser</option>";sel.disabled=true;voiceNote();return}
+  var all=synth.getVoices().filter(function(v){return /^en/i.test(v.lang)});
+  if(!all.length&&voices.length) return;
+  voices=all.sort(function(a,b){return voiceScore(b)-voiceScore(a)});
+  if(!voices.length){sel.innerHTML="<option>No English voices found</option>";sel.disabled=true;voiceNote();return}
+  var want=store.get("voice",null);
+  sel.disabled=false;
+  sel.innerHTML=voices.map(function(v,i){return '<option value="'+i+'">'+esc(v.name)+" ("+esc(v.lang)+")"+(isNG(v)?" ★ Nigerian English":"")+"</option>"}).join("");
+  var idx=0; if(want){voices.forEach(function(v,i){if(v.voiceURI===want)idx=i})}
+  sel.value=String(idx); voiceNote();
+}
+function currentVoice(){var i=parseInt($("#voice").value,10);return voices[i]||null}
+function voiceNote(){
+  var n=$("#voiceNote"),v=currentVoice();
+  if(!synth) n.textContent="This browser can't play preview voices. Wording checks and exports still work.";
+  else if(!v) n.textContent="No English voice is installed on this device.";
+  else if(isNG(v)) n.textContent="A Nigerian English voice. This is as close to Emmy as this device gets.";
+  else n.textContent="No Nigerian English voice on this device, so the preview uses "+v.name+". Pace and pitch are set to suggest Emmy. For the real accent, use the exports or a voice actor.";
+}
+
+/* ---------- speech ---------- */
+function segments(plain){
+  var out=[],parts=plain.split(/\s*\[pause\]\s*/i);
+  parts.forEach(function(p,pi){
+    var sents=p.trim()?p.trim().split(/(?<=[.!?…])\s+/):[];
+    sents.forEach(function(s,si){out.push({text:s,gap:(si===sents.length-1&&pi<parts.length-1)?settings.pause:140})});
+    if(!sents.length&&pi<parts.length-1&&out.length) out[out.length-1].gap=settings.pause;
+  });
+  return out;
+}
+function setSpeaking(on){
+  speaking=on; $("#portrait").classList.toggle("speaking",on);
+  setStatus(on,on?"Speaking":"Ready");
+  if(on){ if(reduce){for(var c=0;c<COLS;c++)levels[c]=3+(c%5);paint()} else kick() } else { if(reduce){for(var d=0;d<COLS;d++)levels[d]=REST[d];paint()} else kick() }
+}
+function stop(){runId++;if(synth)synth.cancel();setSpeaking(false)}
+function play(){
+  if(!synth){toast("This browser can't play preview voices.");return}
+  var plain=spokenPlain(); if(!plain.trim()){toast("Type a line first.");return}
+  stop();
+  var id=++runId,segs=segments(plain),v=currentVoice();
+  setSpeaking(true);
+  function run(i){
+    if(id!==runId) return;
+    if(i>=segs.length){setSpeaking(false);return}
+    var u=new SpeechSynthesisUtterance(segs[i].text);
+    if(v){u.voice=v;u.lang=v.lang}
+    u.rate=settings.rate;u.pitch=settings.pitch;u.volume=settings.volume;
+    u.onboundary=bump;
+    u.onend=function(){if(id!==runId)return;setTimeout(function(){run(i+1)},segs[i].gap)};
+    u.onerror=function(e){if(id!==runId)return;if(e&&(e.error==="interrupted"||e.error==="canceled"))return;setSpeaking(false);toast("The preview voice failed. Try another voice.")};
+    synth.speak(u);
+  }
+  setTimeout(function(){run(0)},80);
+}
+
+/* ---------- mood and sliders ---------- */
+function renderMoods(){
+  $("#moods").innerHTML=MOOD_ORDER.map(function(k){return '<button type="button" class="chip" data-mood="'+k+'" aria-pressed="'+(mood===k)+'">'+MOODS[k].label+"</button>"}).join("");
+  $("#moodNote").textContent=MOODS[mood]?MOODS[mood].note:"Custom: you moved a slider. Pick a mood to reset them.";
+}
+function syncSliders(){
+  $("#rate").value=settings.rate;$("#pitch").value=settings.pitch;$("#volume").value=settings.volume;$("#pause").value=settings.pause;
+  $("#rateOut").textContent=settings.rate.toFixed(2)+"x · about "+Math.round(155*settings.rate)+" wpm";
+  $("#pitchOut").textContent=(settings.pitch>=1?"+":"")+Math.round((settings.pitch-1)*100)+"%";
+  $("#volumeOut").textContent=Math.round(settings.volume*100)+"%";
+  $("#pauseOut").textContent=settings.pause+" ms";
+}
+function applyMood(k){
+  mood=k;settings.rate=MOODS[k].rate;settings.pitch=MOODS[k].pitch;
+  store.set("mood",k);store.set("moodCustom",false);store.set("settings",settings);
+  renderMoods();syncSliders();runChecks();renderExport();
+}
+function customise(){
+  if(MOODS[mood]){mood="custom";store.set("moodCustom",true);renderMoods()}
+  store.set("settings",settings);syncSliders();renderExport();
+}
+
+/* ---------- library ---------- */
+function renderLibTabs(){
+  $("#libTabs").innerHTML=LIBRARY.map(function(g){
+    var n=g.id==="saved"?saved.length:g.lines.length;
+    return '<button type="button" role="tab" class="chip" data-tab="'+g.id+'" aria-selected="'+(libTab===g.id)+'">'+g.label+" · "+n+"</button>";
+  }).join("");
+}
+function renderLib(){
+  renderLibTabs();
+  var ul=$("#libList"),items;
+  if(libTab==="saved") items=saved.map(function(s,i){return {text:s.text,mood:s.mood,idx:i}});
+  else items=LIBRARY.filter(function(g){return g.id===libTab})[0].lines.map(function(l){return {text:l[0],mood:l[1]}});
+  if(!items.length){ul.innerHTML='<li class="empty-note" style="grid-column:1/-1">Nothing saved yet. Write a line, then choose Save line.</li>';return}
+  ul.innerHTML=items.map(function(it,i){
+    var m=MOODS[it.mood]?MOODS[it.mood].label:"Custom";
+    return '<li class="line"><p>'+esc(it.text).replace(/\[pause\]/gi,'<span class="tag">[pause]</span>')+'</p><div class="meta"><span class="tag">'+esc(m)+'</span><span class="row"><button type="button" class="btn small" data-load="'+i+'">Load</button><button type="button" class="btn small primary" data-hear="'+i+'">Hear</button>'+(libTab==="saved"?'<button type="button" class="btn small ghost" data-del="'+i+'" aria-label="Delete saved line">Delete</button>':"")+"</span></div></li>";
+  }).join("");
+  ul._items=items;
+}
+function loadLine(it){
+  $("#script").value=it.text; prevScript=null; $("#undo").hidden=true;
+  if(MOODS[it.mood]) applyMood(it.mood);
+  store.set("draft",it.text); refresh();
+}
+
+/* ---------- rules ---------- */
+function renderRules(){
+  $("#rulesBody").innerHTML=rules.map(function(r,i){
+    return '<tr><td class="on"><input type="checkbox" data-i="'+i+'" data-f="on"'+(r.on?" checked":"")+' aria-label="Rule on"></td>'+
+      '<td><input type="text" id="rf'+i+'" data-i="'+i+'" data-f="from" value="'+xml(r.from)+'" aria-label="Written as" spellcheck="false"></td>'+
+      '<td><input type="text" id="rs'+i+'" data-i="'+i+'" data-f="say" value="'+xml(r.say)+'" aria-label="Spoken as" spellcheck="false"></td>'+
+      '<td class="del"><button type="button" class="btn small ghost" data-rdel="'+i+'" aria-label="Remove rule">×</button></td></tr>';
+  }).join("");
+}
+
+/* ---------- export ---------- */
+function ssmlText(){
+  var plain=spokenPlain(); if(!plain.trim()) return "";
+  var rate=Math.round((settings.rate-1)*100),pitch=Math.round((settings.pitch-1)*100);
+  var sg=function(n){return (n>=0?"+":"")+n+"%"};
+  var parts=plain.split(/\s*\[pause\]\s*/i).filter(function(s){return s.trim()});
+  var body=parts.map(function(p){return "      "+xml(p.trim()).replace(/&quot;/g,'"')}).join('\n      <break time="'+settings.pause+'ms"/>\n');
+  var vn=($("#voiceName").value||"en-NG-AbeoNeural").trim();
+  return '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-NG">\n  <voice name="'+xml(vn)+'">\n    <prosody rate="'+sg(rate)+'" pitch="'+sg(pitch)+'">\n'+body+"\n    </prosody>\n  </voice>\n</speak>";
+}
+function cleanText(){
+  var plain=spokenPlain(); if(!plain.trim()) return "";
+  return plain.split(/\s*\[pause\]\s*/i).filter(function(s){return s.trim()}).map(function(s){return s.trim()}).join(" ...\n");
+}
+function sheetText(){
+  var raw=$("#script").value.trim(); if(!raw) return "";
+  var m=MOODS[mood]||{label:"Custom",wpm:"about "+Math.round(155*settings.rate),sheet:"Follow the pace and pitch below."};
+  var pitchWord=settings.pitch<1.05?"mid":settings.pitch<1.2?"mid, slightly bright":"bright";
+  var lines=["# Emmy STACK01 recording sheet","",
+   "**Character:** Emmy, the teen guide of Emmy STACK01, a Nigerian web design and development agency.",
+   "**Mood:** "+m.label+". "+m.sheet,
+   "**Pace:** "+("about "+Math.round(155*settings.rate))+" words per minute. Beat length for each [pause]: "+settings.pause+" ms.",
+   "**Pitch:** "+pitchWord+". Young-sounding, voice already settled, not squeaky.",
+   "**Accent:** light, educated Lagos Nigerian English. Even syllable rhythm, open vowels, crisp consonants. Not heavy Pidgin, not a caricature.",
+   "**Energy:** warm and upbeat, 7 out of 10. An audible smile. Never shouting.","",
+   "## Script",""];
+  raw.split(/\s*\[pause\]\s*/i).filter(function(s){return s.trim()}).forEach(function(p,i){lines.push((i+1)+". "+p.trim()+"  _(beat after)_")});
+  var rs=rules.filter(function(r){return r.on&&r.from.trim()});
+  if(rs.length){lines.push("","## Pronunciation","");rs.forEach(function(r){lines.push("- "+r.from+" is said \""+r.say+"\"")})}
+  lines.push("- ₦ amounts are said as the number, then \"naira\".","","## Delivery notes","","- Record a clean, dry take with no effects.","- Lift slightly at the end of encouraging lines.","- Pause before key facts, such as \"live in... fourteen days.\"");
+  return lines.join("\n");
+}
+function renderExportTabs(){
+  $("#exTabs").innerHTML=EXPORTS.map(function(e){return '<button type="button" role="tab" class="chip" data-ex="'+e.id+'" aria-selected="'+(exTab===e.id)+'">'+e.label+"</button>"}).join("");
+}
+function exportBody(){return exTab==="ssml"?ssmlText():exTab==="text"?cleanText():sheetText()}
+function renderExport(){
+  renderExportTabs();
+  var e=EXPORTS.filter(function(x){return x.id===exTab})[0];
+  $("#exNote").textContent=e.note; $("#voiceNameBox").hidden=exTab!=="ssml";
+  var b=exportBody(); $("#exOut").value=b||"Write a line in the script box to see the export.";
+  $("#copy").disabled=!b; $("#save").disabled=!b;
+}
+
+/* ---------- refresh ---------- */
+function refresh(){renderSpoken();runChecks();renderExport()}
+
+/* ---------- Emmy rewrite (sample capability) ---------- */
+var sampleFn=null;
+function emmyPrompt(text){
+  var ctx=MOODS[mood]?MOODS[mood].label.toLowerCase()+" line":"line";
+  return "You write lines for Emmy, the teen mascot of Emmy STACK01, a Nigerian web design and development agency. Rewrite the draft below as Emmy would say it aloud.\n\n"+
+  "Voice rules:\n- Warm, quick and clear. Short sentences, most under 15 words. Speak to one person with \"you\" and \"let's\".\n"+
+  "- Light Nigerian English. At most one Nigerian touch (No wahala, Oya let's go, Sharp sharp, Well done), and none in lines about money, legal text, signing or security.\n"+
+  "- Light building and stacking wordplay is fine. No sarcasm, no pressure, no talking down, no emoji.\n"+
+  "- Only state what the agency offers: per-page pricing, websites live within 14 days, free hosting, domain setup and Google indexing. Never promise rankings or sales.\n"+
+  "- Write STACK01 in capitals. Use [pause] where a spoken beat helps, at most twice.\n\n"+
+  "Context: this is a "+ctx+".\n\nDraft:\n"+text+"\n\nReply with only the rewritten line. No quotes, no commentary.";
+}
+function setupSample(){
+  if(!(window.claude&&typeof window.claude.use==="function")) return;
+  window.claude.use("sample").then(function(fn){if(fn){sampleFn=fn;$("#emmyfy").hidden=false}}).catch(function(){});
+}
+function rewrite(){
+  var btn=$("#emmyfy");
+  if(aiCtl){aiCtl.abort();return}
+  var text=$("#script").value.trim(); if(!text){toast("Type a draft first.");return}
+  var before=$("#script").value; aiCtl=new AbortController(); btn.textContent="Stop writing"; setStatus(false,"Writing as Emmy…");
+  var ta=$("#script");
+  sampleFn(emmyPrompt(text),{signal:aiCtl.signal,cache:false,onText:function(u){ta.value=u.text;renderSpoken()}}).then(function(r){
+    var out=r.text.trim().replace(/^["“]|["”]$/g,"");
+    prevScript=before; ta.value=out; $("#undo").hidden=false; store.set("draft",out); refresh();
+  }).catch(function(e){
+    if(e&&e.code==="cancelled"){ta.value=before;refresh();return}
+    ta.value=before; refresh();
+    var c=e&&e.code;
+    if(c==="not_granted"||c==="sampling_disabled"||c==="not_declared"||c==="capability_disabled"){btn.hidden=true;toast("Rewriting needs permission to use Claude. It's switched off here.")}
+    else if(c==="rate_limited") toast("Too many requests right now. Try again in a minute.");
+    else toast("That didn't work. Try again.");
+  }).then(function(){aiCtl=null;btn.textContent="Write it as Emmy";setStatus(false,"Ready")});
+}
+
+/* ---------- downloads ---------- */
+var dl=null;
+function setupDownloads(){
+  if(!(window.claude&&typeof window.claude.use==="function")) return;
+  window.claude.use("downloads").then(function(d){if(d){dl=d;$("#save").hidden=false}}).catch(function(){});
+}
+function saveFile(){
+  var e=EXPORTS.filter(function(x){return x.id===exTab})[0],body=exportBody(); if(!body||!dl) return;
+  var name="emmy-"+(exTab==="sheet"?"recording-sheet":exTab==="ssml"?"ssml":"clean-text")+"."+e.ext;
+  dl.save({filename:name,data:body}).then(function(){toast("Saved "+name)}).catch(function(err){
+    var c=err&&err.code; if(c==="declined") return;
+    if(c==="unavailable"||c==="not_granted"||c==="capability_disabled"||c==="capability_removed"){$("#save").hidden=true;toast("Saving isn't available here. Use Copy instead.")}
+    else toast("Couldn't save the file. Use Copy instead.");
+  });
+}
+function copyOut(){
+  var b=exportBody(); if(!b) return;
+  var ta=$("#exOut");
+  function fallback(){ta.focus();ta.select();toast("Selected. Press copy on your keyboard.")}
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(b).then(function(){toast("Copied")}).catch(fallback)} else fallback();
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click",function(ev){
+  var t=ev.target.closest("button"); if(!t) return;
+  if(t.dataset.mood){applyMood(t.dataset.mood);return}
+  if(t.dataset.tab){libTab=t.dataset.tab;renderLib();return}
+  if(t.dataset.ex){exTab=t.dataset.ex;renderExport();return}
+  var list=$("#libList")._items||[];
+  if(t.dataset.load!==undefined){loadLine(list[+t.dataset.load]);return}
+  if(t.dataset.hear!==undefined){loadLine(list[+t.dataset.hear]);play();return}
+  if(t.dataset.del!==undefined){saved.splice(+t.dataset.del,1);store.set("saved",saved);renderLib();return}
+  if(t.dataset.rdel!==undefined){rules.splice(+t.dataset.rdel,1);store.set("rules",rules);renderRules();refresh();return}
+});
+$("#play").addEventListener("click",play);
+$("#stop").addEventListener("click",stop);
+$("#emmyfy").addEventListener("click",rewrite);
+$("#undo").addEventListener("click",function(){if(prevScript!=null){$("#script").value=prevScript;prevScript=null;$("#undo").hidden=true;store.set("draft",$("#script").value);refresh()}});
+$("#saveLine").addEventListener("click",function(){
+  var t=$("#script").value.trim(); if(!t){toast("Type a line first.");return}
+  if(saved.some(function(s){return s.text===t})){toast("Already saved.");return}
+  saved.unshift({text:t,mood:MOODS[mood]?mood:"friendly"});store.set("saved",saved);renderLibTabs();if(libTab==="saved")renderLib();toast("Saved to your library");
+});
+$("#script").addEventListener("input",function(){store.set("draft",this.value);refresh()});
+["rate","pitch","volume"].forEach(function(k){$("#"+k).addEventListener("input",function(){settings[k]=parseFloat(this.value);customise();runChecks()})});
+$("#pause").addEventListener("input",function(){settings.pause=parseInt(this.value,10);customise()});
+$("#voice").addEventListener("change",function(){var v=currentVoice();if(v)store.set("voice",v.voiceURI);voiceNote()});
+$("#rulesBody").addEventListener("input",function(ev){
+  var el=ev.target,i=+el.dataset.i,f=el.dataset.f; if(isNaN(i)||!rules[i]) return;
+  rules[i][f]=f==="on"?el.checked:el.value; store.set("rules",rules); refresh();
+});
+$("#addRule").addEventListener("click",function(){rules.push({on:true,from:"",say:""});store.set("rules",rules);renderRules();var el=$("#rf"+(rules.length-1));if(el)el.focus()});
+$("#resetRules").addEventListener("click",function(){rules=DEFAULT_RULES.map(function(r){return Object.assign({},r)});store.set("rules",rules);renderRules();refresh();toast("Rules reset")});
+$("#voiceName").addEventListener("input",renderExport);
+$("#copy").addEventListener("click",copyOut);
+$("#save").addEventListener("click",saveFile);
+window.addEventListener("beforeunload",function(){if(synth)synth.cancel()});
+
+/* ---------- start ---------- */
+var draft=store.get("draft",null);
+$("#script").value=(typeof draft==="string"&&draft.trim())?draft:LIBRARY[0].lines[2][0];
+if(mood==="custom"){renderMoods()} else {renderMoods()}
+syncSliders();renderLib();renderRules();refresh();
+if(synth){loadVoices();synth.onvoiceschanged=loadVoices;setTimeout(loadVoices,700)} else loadVoices();
+setupSample();setupDownloads();
+})();
+</script>
+
+</body></html>
